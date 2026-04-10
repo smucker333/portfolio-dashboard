@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --surface2: #f1efe8;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+    --text3: #888780;
+    --up: #1D9E75;
+    --up-bg: #E1F5EE;
+    --dn: #D85A30;
+    --dn-bg: #FAECE7;
+    --purple: #7F77DD;
+    --purple-bg: #EEEDFE;
+    --teal: #1D9E75;
+    --blue: #378ADD;
+    --blue-bg: #E6F1FB;
+    --amber: #EF9F27;
+    --coral: #D85A30;
+    --gray: #888780;
+    --radius: 10px;
+    --radius-sm: 7px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #242422;
+      --surface2: #2c2c2a;
+      --border: rgba(255,255,255,0.1);
+      --text: #f1efe8;
+      --text2: #b4b2a9;
+      --text3: #888780;
+    }
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  .app { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+  .header-left h1 { font-size: 22px; font-weight: 500; margin-bottom: 2px; }
+  .header-left p { font-size: 13px; color: var(--text3); }
+  .setup-btn { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 14px; cursor: pointer; color: var(--text2); }
+  .setup-btn:hover { background: var(--surface2); }
+
+  /* Loading / error states */
+  .state { text-align: center; padding: 4rem 2rem; color: var(--text2); }
+  .state .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .state.error { color: var(--dn); }
+
+  /* Metric cards */
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  @media (max-width: 600px) { .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .mc { background: var(--surface2); border-radius: var(--radius-sm); padding: 1rem; }
+  .mc-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+  .mc-val { font-size: 20px; font-weight: 500; }
+  .mc-sub { font-size: 12px; margin-top: 3px; }
+
+  /* Charts row */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 1.5rem; }
+  @media (max-width: 640px) { .charts-row { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; }
+  .card-title { font-size: 12px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .legend span { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
+  .ld { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; }
+
+  /* Bar chart */
+  .bar-rows { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-name { font-size: 12px; color: var(--text2); width: 76px; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 24px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; min-width: 40px; transition: width 0.6s ease; }
+  .bar-val { font-size: 11px; font-weight: 500; white-space: nowrap; }
+
+  /* Winners */
+  .winners-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wcard { border-radius: var(--radius-sm); padding: 0.85rem 1rem; }
+  .wcard-ticker { font-size: 16px; font-weight: 500; }
+  .wcard-name { font-size: 11px; margin: 2px 0 8px; }
+  .wcard-pct { font-size: 22px; font-weight: 500; }
+  .wcard-profit { font-size: 11px; margin-top: 2px; }
+
+  /* Accounts table */
+  .accounts-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1.5rem; }
+  .fund-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .fund-table th { font-size: 11px; color: var(--text3); font-weight: 500; text-align: right; padding: 6px 8px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; }
+  .fund-table th:first-child { text-align: left; }
+  .fund-table td { padding: 7px 8px; text-align: right; border-bottom: 0.5px solid var(--border); color: var(--text2); }
+  .fund-table td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+  .fund-table tr:last-child td { border-bottom: none; }
+  .fund-table tr.total-row td { font-weight: 500; color: var(--text); background: var(--surface2); font-size: 12px; }
+  .acct-header { display: flex; align-items: center; gap: 8px; margin: 1.25rem 0 0.6rem; }
+  .acct-header:first-child { margin-top: 0; }
+  .acct-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .acct-name { font-size: 13px; font-weight: 500; }
+  .acct-return { font-size: 12px; margin-left: auto; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+
+  /* Setup modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; max-width: 480px; width: 100%; }
+  .modal h2 { font-size: 17px; font-weight: 500; margin-bottom: 0.5rem; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 1rem; line-height: 1.6; }
+  .modal input { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; background: var(--surface2); color: var(--text); margin-bottom: 0.75rem; outline: none; }
+  .modal input:focus { border-color: var(--purple); }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-primary { background: var(--purple); color: white; border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 14px; cursor: pointer; font-weight: 500; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-cancel { background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 18px; font-size: 14px; cursor: pointer; color: var(--text2); }
+  .step { background: var(--surface2); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 0.75rem; font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .step strong { color: var(--text); font-weight: 500; }
+  .step code { background: var(--border); padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+
+  /* Last updated */
+  .footer { text-align: center; font-size: 12px; color: var(--text3); margin-top: 2rem; }
+  .refresh-btn { background: none; border: none; color: var(--purple); cursor: pointer; font-size: 12px; padding: 0; margin-left: 8px; }
+  .refresh-btn:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Portfolio dashboard</h1>
+      <p id="last-updated">Connecting to Google Sheet...</p>
+    </div>
+    <button class="setup-btn" onclick="openSetup()">⚙ Settings</button>
+  </div>
+
+  <div id="main-content">
+    <div class="state" id="loading-state">
+      <div class="spinner"></div>
+      <p>Loading your portfolio...</p>
+    </div>
+  </div>
+
+  <!-- Setup modal -->
+  <div class="modal-bg" id="setup-modal" style="display:none;">
+    <div class="modal">
+      <h2>Connect your Google Sheet</h2>
+      <p>Follow these steps once, then your dashboard will always pull live data from your sheet.</p>
+
+      <div class="step"><strong>Step 1:</strong> In your Google Sheet, click <strong>Extensions → Apps Script</strong></div>
+      <div class="step"><strong>Step 2:</strong> Delete any existing code, then paste in the <code>Code.gs</code> file provided with this dashboard</div>
+      <div class="step"><strong>Step 3:</strong> Click <strong>Deploy → New deployment → Web app</strong>. Set "Who has access" to <strong>Anyone</strong>. Click Deploy and copy the URL</div>
+      <div class="step"><strong>Step 4:</strong> Paste that URL below and click Save</div>
+
+      <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/..." />
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeSetup()">Cancel</button>
+        <button class="btn-primary" onclick="saveUrl()">Save & connect</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLORS = {
+  'Brokerage': '#1D9E75',
+  'HSA': '#EF9F27',
+  'Simple IRA': '#378ADD',
+  'Roth IRA': '#7F77DD',
+  'Stocks': '#D85A30',
+  'Crypto': '#D4537E'
+};
+
+const fmt = v => '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+const fmtFull = v => '$' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+let donutChart = null;
+
+function getScriptUrl() {
+  return localStorage.getItem('portfolio_script_url') || '';
+}
+
+function openSetup() {
+  document.getElementById('script-url-input').value = getScriptUrl();
+  document.getElementById('setup-modal').style.display = 'flex';
+}
+
+function closeSetup() {
+  document.getElementById('setup-modal').style.display = 'none';
+}
+
+function saveUrl() {
+  const url = document.getElementById('script-url-input').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    alert('Please paste a valid Google Apps Script URL.');
+    return;
+  }
+  localStorage.setItem('portfolio_script_url', url);
+  closeSetup();
+  loadData();
+}
+
+function loadData() {
+  const url = getScriptUrl();
+  const content = document.getElementById('main-content');
+
+  if (!url) {
+    content.innerHTML = `
+      <div class="state">
+        <p style="font-size:15px;margin-bottom:1rem;">No Google Sheet connected yet.</p>
+        <button class="btn-primary" onclick="openSetup()">Connect your sheet</button>
+      </div>`;
+    document.getElementById('last-updated').textContent = 'Not connected';
+    return;
+  }
+
+  content.innerHTML = `<div class="state"><div class="spinner"></div><p>Loading your portfolio...</p></div>`;
+  document.getElementById('last-updated').textContent = 'Loading...';
+
+  const old = document.getElementById('jsonp-script');
+  if (old) old.remove();
+
+  const timer = setTimeout(() => {
+    content.innerHTML = `
+      <div class="state error">
+        <p style="font-size:15px;margin-bottom:0.5rem;">Could not load data.</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Timed out. Make sure you redeployed with a <strong>New Version</strong> after updating Code.gs, and that access is set to <strong>Anyone</strong>.</p>
+        <button class="btn-primary" onclick="openSetup()">Update settings</button>
+      </div>`;
+    document.getElementById('last-updated').textContent = 'Connection failed';
+  }, 10000);
+
+  window.__portfolioCallback = function(data) {
+    clearTimeout(timer);
+    renderDashboard(data);
+  };
+
+  const script = document.createElement('script');
+  script.id = 'jsonp-script';
+  script.src = url + '?callback=__portfolioCallback';
+  script.onerror = () => {
+    clearTimeout(timer);
+    content.innerHTML = `
+      <div class="state error">
+        <p style="font-size:15px;margin-bottom:0.5rem;">Could not load data.</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Script failed to load. Double-check your Apps Script URL in settings.</p>
+        <button class="btn-primary" onclick="openSetup()">Update settings</button>
+      </div>`;
+    document.getElementById('last-updated').textContent = 'Connection failed';
+  };
+  document.head.appendChild(script);
+}
+
+function renderDashboard(data) {
+  const { accounts, summary } = data;
+  const updated = data.lastUpdated ? new Date(data.lastUpdated).toLocaleString() : 'Unknown';
+  document.getElementById('last-updated').innerHTML =
+    `Updated ${updated} <button class="refresh-btn" onclick="loadData()">Refresh</button>`;
+
+  const totalGain = summary.totalProfit >= 0;
+
+  let html = '';
+
+  // Metric cards
+  const bestAcct = [...accounts].sort((a,b) => b.returnPct - a.returnPct)[0];
+  html += `<div class="metrics">
+    <div class="mc">
+      <div class="mc-label">Total invested</div>
+      <div class="mc-val">${fmt(summary.totalInvested)}</div>
+    </div>
+    <div class="mc">
+      <div class="mc-label">Current value</div>
+      <div class="mc-val">${fmt(summary.totalValue)}</div>
+      <div class="mc-sub" style="color:${totalGain?'var(--up)':'var(--dn)'}">${totalGain?'+':''}${fmt(summary.totalProfit)} profit</div>
+    </div>
+    <div class="mc">
+      <div class="mc-label">Overall return</div>
+      <div class="mc-val" style="color:${totalGain?'var(--up)':'var(--dn)'}">${fmtPct(summary.returnPct)}</div>
+    </div>
+    <div class="mc">
+      <div class="mc-label">Best account</div>
+      <div class="mc-val">${bestAcct ? bestAcct.name : '—'}</div>
+      <div class="mc-sub" style="color:var(--up)">${bestAcct ? fmtPct(bestAcct.returnPct) : ''}</div>
+    </div>
+  </div>`;
+
+  // Charts row
+  const accountsWithData = accounts.filter(a => a.value > 0);
+  const maxReturn = Math.max(...accountsWithData.map(a => Math.abs(a.returnPct)), 1);
+
+  html += `<div class="charts-row">
+    <div class="card">
+      <div class="card-title">Account value</div>
+      <div class="legend" id="donut-legend"></div>
+      <div class="chart-wrap" style="height:190px;">
+        <canvas id="donutChart" role="img" aria-label="Donut chart of account values"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Return by account</div>
+      <div class="bar-rows">
+        ${accountsWithData.sort((a,b) => b.returnPct - a.returnPct).map(a => {
+          const pct = Math.abs(a.returnPct) / maxReturn * 100;
+          const color = COLORS[a.name] || '#888780';
+          const textColor = a.returnPct >= 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.9)';
+          return `<div class="bar-row">
+            <span class="bar-name">${a.name}</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${Math.max(pct,8)}%;background:${color}">
+                <span class="bar-val" style="color:${textColor}">${fmtPct(a.returnPct)}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  // Top/bottom performers
+  const allFunds = accounts.flatMap(a => (a.funds || []).map(f => ({...f, account: a.name})));
+  const sorted = [...allFunds].filter(f => f.invested > 50).sort((a,b) => b.returnPct - a.returnPct);
+  const top2 = sorted.slice(0, 2);
+  const bot2 = sorted.slice(-2).reverse();
+  const featured = [...top2, ...bot2];
+
+  html += `<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">Top & bottom performers</div>
+    <div class="winners-grid">
+      ${featured.map(f => {
+        const up = f.returnPct >= 0;
+        const bg = up ? '#E1F5EE' : '#FAECE7';
+        const col = up ? '#085041' : '#712B13';
+        const col2 = up ? '#0F6E56' : '#993C1D';
+        return `<div class="wcard" style="background:${bg}">
+          <div class="wcard-ticker" style="color:${col}">${f.ticker}</div>
+          <div class="wcard-name" style="color:${col2}">${f.description || f.account}</div>
+          <div class="wcard-pct" style="color:${col}">${fmtPct(f.returnPct)}</div>
+          <div class="wcard-profit" style="color:${col2}">${f.profit >= 0 ? '+' : ''}${fmtFull(f.profit)} profit</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  // Full fund table by account
+  html += `<div class="accounts-card"><div class="card-title">All holdings</div>`;
+  for (const acct of accounts) {
+    if (!acct.funds || acct.funds.length === 0) continue;
+    const color = COLORS[acct.name] || '#888780';
+    html += `<div class="acct-header">
+      <span class="acct-dot" style="background:${color}"></span>
+      <span class="acct-name">${acct.name}</span>
+      <span class="acct-return">
+        <span class="pill" style="background:${acct.returnPct>=0?'#E1F5EE':'#FAECE7'};color:${acct.returnPct>=0?'#085041':'#712B13'}">${fmtPct(acct.returnPct)}</span>
+      </span>
+    </div>
+    <table class="fund-table">
+      <thead><tr>
+        <th>Fund</th><th>Invested</th><th>Value</th><th>Profit</th><th>Return</th>
+      </tr></thead>
+      <tbody>
+        ${acct.funds.map(f => {
+          const up = f.profit >= 0;
+          return `<tr>
+            <td>${f.ticker}<span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:5px;">${f.description||''}</span></td>
+            <td>${fmtFull(f.invested)}</td>
+            <td>${fmtFull(f.value)}</td>
+            <td style="color:${up?'var(--up)':'var(--dn)'}">${up?'+':''}${fmtFull(f.profit)}</td>
+            <td style="color:${up?'var(--up)':'var(--dn)'}">${fmtPct(f.returnPct)}</td>
+          </tr>`;
+        }).join('')}
+        <tr class="total-row">
+          <td>Total</td>
+          <td>${fmtFull(acct.invested)}</td>
+          <td>${fmtFull(acct.value)}</td>
+          <td style="color:${acct.profit>=0?'var(--up)':'var(--dn)'}">${acct.profit>=0?'+':''}${fmtFull(acct.profit)}</td>
+          <td style="color:${acct.returnPct>=0?'var(--up)':'var(--dn)'}">${fmtPct(acct.returnPct)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="footer">Data pulled live from Google Sheets</div>`;
+
+  document.getElementById('main-content').innerHTML = html;
+
+  // Donut chart
+  const legendEl = document.getElementById('donut-legend');
+  const labels = accountsWithData.map(a => a.name);
+  const values = accountsWithData.map(a => a.value);
+  const colors = accountsWithData.map(a => COLORS[a.name] || '#888');
+  const total = values.reduce((s,v) => s+v, 0);
+
+  legendEl.innerHTML = labels.map((l,i) =>
+    `<span><span class="ld" style="background:${colors[i]}"></span>${l} ${(values[i]/total*100).toFixed(0)}%</span>`
+  ).join('');
+
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: 'transparent' }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) } }
+      }
+    }
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
